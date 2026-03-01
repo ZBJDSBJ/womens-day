@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三八专属赞美生成器 🌸</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600;700&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --cream: #fdf8f2;
+    --warm-white: #fff9f5;
+    --blush: #f2c4ce;
+    --rose: #d4758a;
+    --deep-rose: #a84f65;
+    --sage: #8aab94;
+    --text: #3a2a2e;
+    --text-soft: #7a5a62;
+    --text-muted: #b89aa0;
+    --border: #e8d5d8;
+    --card-bg: rgba(255,252,249,0.95);
+    --self-rose: #9b7ec8;
+    --self-deep: #7055a0;
+    --self-light: #e8dff5;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--cream);
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  #petals-canvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 15% 10%, rgba(242,196,206,0.25) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 60% at 85% 90%, rgba(212,117,138,0.12) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+
+  .page {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 48px 20px 60px;
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center; margin-bottom: 32px;
+    animation: riseIn 0.9s ease both;
+  }
+
+  .date-badge {
+    display: inline-block;
+    background: var(--rose); color: white;
+    font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase;
+    padding: 5px 16px; border-radius: 20px; margin-bottom: 16px;
+    font-family: 'Lora', serif;
+  }
+
+  .main-title {
+    font-size: clamp(2rem, 6vw, 3rem); font-weight: 700;
+    line-height: 1.2; color: var(--text); letter-spacing: -0.01em;
+    transition: all 0.4s;
+  }
+  .main-title em { font-style: italic; color: var(--rose); transition: color 0.4s; }
+  body.self-mode .main-title em { color: var(--self-rose); }
+
+  .tagline { margin-top: 10px; font-size: 0.85rem; color: var(--text-soft); font-weight: 300; letter-spacing: 0.05em; }
+
+  /* ── Mode Toggle ── */
+  .mode-toggle {
+    display: flex; gap: 0;
+    background: white; border: 1.5px solid var(--border);
+    border-radius: 30px; padding: 4px;
+    margin-bottom: 28px;
+    animation: riseIn 0.9s 0.05s ease both;
+  }
+
+  .mode-btn {
+    padding: 8px 22px; border-radius: 24px;
+    border: none; background: transparent;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 0.8rem; color: var(--text-soft);
+    cursor: pointer; transition: all 0.3s; letter-spacing: 0.05em;
+  }
+  .mode-btn.active {
+    background: var(--rose); color: white;
+    box-shadow: 0 2px 12px rgba(212,117,138,0.3);
+  }
+  body.self-mode .mode-btn.active {
+    background: var(--self-rose);
+    box-shadow: 0 2px 12px rgba(155,126,200,0.35);
+  }
+
+  /* ── Input Card ── */
+  .input-card {
+    width: 100%; max-width: 560px;
+    background: var(--card-bg);
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 36px 32px;
+    box-shadow: 0 4px 40px rgba(168,79,101,0.08), 0 1px 3px rgba(168,79,101,0.04);
+    animation: riseIn 0.9s 0.1s ease both; margin-bottom: 24px;
+    transition: box-shadow 0.4s, border-color 0.4s;
+  }
+  body.self-mode .input-card {
+    box-shadow: 0 4px 40px rgba(112,85,160,0.1);
+    border-color: #d8ccec;
+  }
+
+  .section-label {
+    font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-size: 0.78rem; color: var(--text-soft); margin-bottom: 7px; font-weight: 400; }
+
+  .field input, .field select, .field textarea {
+    width: 100%; background: var(--warm-white);
+    border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 11px 14px; color: var(--text);
+    font-family: 'Noto Serif SC', serif; font-size: 0.88rem;
+    outline: none; transition: border-color 0.25s, box-shadow 0.25s; resize: none;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--rose);
+    box-shadow: 0 0 0 3px rgba(212,117,138,0.12);
+  }
+  body.self-mode .field input:focus,
+  body.self-mode .field select:focus,
+  body.self-mode .field textarea:focus {
+    border-color: var(--self-rose);
+    box-shadow: 0 0 0 3px rgba(155,126,200,0.15);
+  }
+  .field textarea { height: 72px; }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .tag-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+
+  .tag {
+    padding: 5px 14px; border-radius: 20px;
+    border: 1.5px solid var(--border); font-size: 0.75rem;
+    color: var(--text-soft); cursor: pointer; transition: all 0.2s;
+    background: var(--warm-white); user-select: none;
+  }
+  .tag:hover { border-color: var(--rose); color: var(--rose); }
+  .tag.active { background: var(--rose); border-color: var(--rose); color: white; }
+  body.self-mode .tag:hover { border-color: var(--self-rose); color: var(--self-rose); }
+  body.self-mode .tag.active { background: var(--self-rose); border-color: var(--self-rose); }
+
+  .style-label { font-size: 0.72rem; color: var(--text-soft); margin-bottom: 8px; margin-top: 20px; display: block; }
+
+  .generate-btn {
+    width: 100%; margin-top: 24px;
+    background: linear-gradient(135deg, var(--rose), var(--deep-rose));
+    color: white; border: none; border-radius: 12px; padding: 15px;
+    font-family: 'Noto Serif SC', serif; font-size: 0.9rem; font-weight: 600;
+    letter-spacing: 0.08em; cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(168,79,101,0.3);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  body.self-mode .generate-btn {
+    background: linear-gradient(135deg, var(--self-rose), var(--self-deep));
+    box-shadow: 0 4px 20px rgba(112,85,160,0.3);
+  }
+  .generate-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .generate-btn:active { transform: scale(0.99); }
+  .generate-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  /* ── Self-mode hidden fields ── */
+  .other-only { transition: opacity 0.3s, max-height 0.4s; overflow: hidden; max-height: 200px; }
+  body.self-mode .other-only { opacity: 0; max-height: 0; pointer-events: none; }
+  .self-only { display: none; }
+  body.self-mode .self-only { display: block; }
+
+  /* ── Result Section ── */
+  #result-section {
+    width: 100%; max-width: 560px;
+    display: none; animation: riseIn 0.7s ease both;
+  }
+  #result-section.visible { display: block; }
+
+  /* Text result card */
+  .result-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 36px 32px;
+    box-shadow: 0 4px 40px rgba(168,79,101,0.08);
+    position: relative; overflow: hidden; margin-bottom: 16px;
+  }
+  .result-card::before {
+    content: '🌸'; position: absolute; top: -10px; right: -10px;
+    font-size: 80px; opacity: 0.06; transform: rotate(15deg); pointer-events: none;
+  }
+  body.self-mode .result-card { border-color: #d8ccec; }
+  body.self-mode .result-card::before { content: '✨'; }
+
+  .result-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
+  }
+  .result-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rose); }
+  body.self-mode .result-dot { background: var(--self-rose); }
+  .result-title { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+  .result-to { font-size: 0.82rem; color: var(--text-muted); margin-left: auto; font-style: italic; font-family: 'Lora', serif; }
+
+  /* Editable text */
+  #result-text {
+    font-size: 1rem; line-height: 1.95; color: var(--text);
+    font-weight: 400; white-space: pre-wrap;
+    min-height: 120px; letter-spacing: 0.02em;
+    outline: none; border-radius: 8px;
+    transition: background 0.2s, padding 0.2s;
+    cursor: text;
+  }
+  #result-text[contenteditable="true"] {
+    background: rgba(212,117,138,0.04);
+    padding: 10px 12px;
+    border: 1.5px dashed var(--blush);
+  }
+  body.self-mode #result-text[contenteditable="true"] {
+    background: rgba(155,126,200,0.05);
+    border-color: #c9b8e8;
+  }
+  #result-text.streaming::after {
+    content: '▌'; color: var(--rose); animation: blink 0.7s infinite;
+  }
+
+  .edit-hint {
+    margin-top: 8px; font-size: 0.68rem; color: var(--text-muted);
+    letter-spacing: 0.05em; text-align: right; opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .edit-hint.show { opacity: 1; }
+
+  .result-footer {
+    margin-top: 24px; padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 10px;
+  }
+
+  .action-btn {
+    flex: 1; padding: 11px; border-radius: 10px;
+    font-family: 'Noto Serif SC', serif; font-size: 0.78rem;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; font-weight: 500;
+  }
+  .copy-btn {
+    background: var(--rose); color: white; border: none;
+    box-shadow: 0 2px 12px rgba(212,117,138,0.3);
+  }
+  body.self-mode .copy-btn {
+    background: var(--self-rose);
+    box-shadow: 0 2px 12px rgba(155,126,200,0.3);
+  }
+  .copy-btn:hover { opacity: 0.88; }
+  .card-btn {
+    background: transparent; color: var(--text-soft);
+    border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .card-btn:hover { border-color: var(--rose); color: var(--rose); }
+  body.self-mode .card-btn:hover { border-color: var(--self-rose); color: var(--self-rose); }
+  .regen-btn {
+    background: transparent; color: var(--text-soft);
+    border: 1.5px solid var(--border); flex: 0.6;
+  }
+  .regen-btn:hover { border-color: var(--rose); color: var(--rose); }
+
+  /* ── Share Card (canvas target) ── */
+  #share-card-wrap {
+    display: none; margin-top: 20px;
+    animation: riseIn 0.5s ease both;
+  }
+  #share-card-wrap.visible { display: block; }
+
+  #share-card {
+    width: 100%; border-radius: 16px; overflow: hidden;
+    position: relative;
+    background: linear-gradient(145deg, #fff5f7 0%, #fdf0f3 40%, #f8eaf5 100%);
+    padding: 44px 36px 36px;
+    border: 1px solid #f0d8de;
+    font-family: 'Noto Serif SC', serif;
+  }
+
+  .card-deco-top {
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #f0a0b5, #d4758a, #c084b4, #d4758a, #f0a0b5);
+  }
+
+  .card-flowers {
+    position: absolute; top: 14px; right: 20px;
+    font-size: 28px; opacity: 0.5; letter-spacing: 4px;
+  }
+
+  .card-date {
+    font-size: 0.58rem; letter-spacing: 0.3em; text-transform: uppercase;
+    color: #c0889a; margin-bottom: 6px; font-family: 'Lora', serif;
+  }
+
+  .card-to {
+    font-size: 0.85rem; color: #a06070;
+    font-style: italic; font-family: 'Lora', serif;
+    margin-bottom: 22px; padding-bottom: 16px;
+    border-bottom: 1px solid rgba(212,117,138,0.2);
+  }
+
+  .card-body {
+    font-size: 0.95rem; line-height: 2; color: #4a2e34;
+    letter-spacing: 0.03em; white-space: pre-wrap;
+  }
+
+  .card-footer {
+    margin-top: 24px; padding-top: 16px;
+    border-top: 1px solid rgba(212,117,138,0.2);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
+  .card-sig { font-size: 0.72rem; color: #c0889a; font-family: 'Lora', serif; font-style: italic; }
+  .card-heart { font-size: 1rem; color: var(--rose); }
+
+  /* Self-mode card variant */
+  body.self-mode #share-card {
+    background: linear-gradient(145deg, #f8f4ff 0%, #f2ecff 40%, #ede5ff 100%);
+    border-color: #d8ccec;
+  }
+  body.self-mode .card-deco-top {
+    background: linear-gradient(90deg, #b89de0, #9b7ec8, #7b9ed4, #9b7ec8, #b89de0);
+  }
+  body.self-mode .card-date { color: #9080b8; }
+  body.self-mode .card-to { color: #8060a0; border-bottom-color: rgba(155,126,200,0.2); }
+  body.self-mode .card-body { color: #3a2a4e; }
+  body.self-mode .card-footer { border-top-color: rgba(155,126,200,0.2); }
+  body.self-mode .card-sig { color: #9080b8; }
+  body.self-mode .card-heart { color: var(--self-rose); }
+
+  .download-btn {
+    width: 100%; margin-top: 14px;
+    background: var(--text); color: white;
+    border: none; border-radius: 10px; padding: 12px;
+    font-family: 'Noto Serif SC', serif; font-size: 0.8rem;
+    letter-spacing: 0.08em; cursor: pointer;
+    transition: opacity 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .download-btn:hover { opacity: 0.82; }
+
+  .share-hint { text-align: center; margin-top: 12px; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.05em; }
+
+  /* ── Misc ── */
+  .divider { text-align: center; color: var(--blush); font-size: 1.1rem; letter-spacing: 0.5em; margin: 6px 0; opacity: 0.7; }
+
+  footer { margin-top: 40px; text-align: center; font-size: 0.65rem; color: var(--text-muted); letter-spacing: 0.1em; animation: riseIn 1s 0.3s ease both; }
+
+  .toast {
+    position: fixed; bottom: 32px; left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: var(--text); color: white;
+    padding: 10px 24px; border-radius: 24px;
+    font-size: 0.78rem; letter-spacing: 0.05em;
+    opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 999;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+  @keyframes riseIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 480px) {
+    .input-card, .result-card { padding: 24px 18px; }
+    .field-row { grid-template-columns: 1fr; }
+    #share-card { padding: 36px 24px 28px; }
+    .result-footer { flex-wrap: wrap; }
+    .regen-btn { flex: 1 0 100%; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="petals-canvas"></canvas>
+<div class="toast" id="toast"></div>
+
+<div class="page">
+  <header>
+    <div class="date-badge">3.8 国际妇女节</div>
+    <div class="main-title" id="main-title">为她写一段<br><em>专属赞美</em></div>
+    <div class="tagline" id="tagline">用 AI，送出一份真正走心的话语</div>
+  </header>
+
+  <!-- Mode Toggle -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btn-other" onclick="setMode('other')">💌 写给她</button>
+    <button class="mode-btn" id="btn-self" onclick="setMode('self')">🌟 写给自己</button>
+  </div>
+
+  <div class="input-card">
+    <div class="section-label" id="form-label">填写她的信息</div>
+
+    <!-- Other mode fields -->
+    <div class="other-only">
+      <div class="field-row">
+        <div class="field">
+          <label>她叫什么名字</label>
+          <input type="text" id="name" placeholder="如：小雨、妈妈、Lisa…" maxlength="10">
+        </div>
+        <div class="field">
+          <label>你们的关系</label>
+          <select id="relation">
+            <option value="挚友">挚友 / 闺蜜</option>
+            <option value="伴侣">伴侣 / 女友</option>
+            <option value="妈妈">妈妈</option>
+            <option value="同事">同事</option>
+            <option value="姐姐">姐姐 / 妹妹</option>
+            <option value="妻子">妻子</option>
+            <option value="老师">老师</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>她身上最打动你的特质（可多选）</label>
+        <div class="tag-group" id="traits">
+          <span class="tag" data-v="温柔体贴">温柔体贴</span>
+          <span class="tag" data-v="独立坚强">独立坚强</span>
+          <span class="tag" data-v="聪明睿智">聪明睿智</span>
+          <span class="tag" data-v="幽默风趣">幽默风趣</span>
+          <span class="tag" data-v="努力拼搏">努力拼搏</span>
+          <span class="tag" data-v="充满创意">充满创意</span>
+          <span class="tag" data-v="善良大方">善良大方</span>
+          <span class="tag" data-v="美丽动人">美丽动人</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>一件让你印象深刻的事（选填）</label>
+        <textarea id="memory" placeholder="比如：她一个人搬去陌生城市打拼，从没喊过苦…"></textarea>
+      </div>
+    </div>
+
+    <!-- Self mode fields -->
+    <div class="self-only">
+      <div class="field">
+        <label>你的名字（可以是昵称）</label>
+        <input type="text" id="self-name" placeholder="如：小慧、我自己…" maxlength="10">
+      </div>
+      <div class="field">
+        <label>你今年经历了什么？（选填，让赞美更贴心）</label>
+        <textarea id="self-story" placeholder="比如：换了新工作、独自带娃、终于完成了一个目标…"></textarea>
+      </div>
+      <div class="field">
+        <label>你想对自己说的方向</label>
+        <div class="tag-group" id="self-traits">
+          <span class="tag" data-v="肯定自己的努力">肯定努力</span>
+          <span class="tag" data-v="接纳不完美的自己">接纳自我</span>
+          <span class="tag" data-v="鼓励继续前行">鼓励前行</span>
+          <span class="tag" data-v="感谢自己的坚持">感谢坚持</span>
+          <span class="tag active" data-v="庆祝成长与变化">庆祝成长</span>
+        </div>
+      </div>
+    </div>
+
+    <span class="style-label">文字风格</span>
+    <div class="tag-group" id="styles">
+      <span class="tag active" data-v="温柔诗意">🌸 温柔诗意</span>
+      <span class="tag" data-v="真诚走心">💌 真诚走心</span>
+      <span class="tag" data-v="轻松俏皮">✨ 轻松俏皮</span>
+      <span class="tag" data-v="大气有力">🔥 大气有力</span>
+    </div>
+
+    <button class="generate-btn" id="gen-btn" onclick="generate()">
+      <span>✦</span> <span id="btn-label">生成专属赞美</span>
+    </button>
+  </div>
+
+  <div class="divider">· · · 🌸 · · ·</div>
+
+  <div id="result-section">
+    <!-- Text result -->
+    <div class="result-card">
+      <div class="result-header">
+        <div class="result-dot"></div>
+        <div class="result-title">专属赞美</div>
+        <div class="result-to" id="result-to"></div>
+      </div>
+      <div id="result-text" contenteditable="false" spellcheck="false"></div>
+      <div class="edit-hint" id="edit-hint">✎ 点击文字可直接编辑</div>
+      <div class="result-footer">
+        <button class="action-btn copy-btn" onclick="copyText()">复制文字</button>
+        <button class="action-btn card-btn" onclick="toggleCard()">🎴 <span id="card-btn-label">生成卡片</span></button>
+        <button class="action-btn regen-btn" onclick="generate()">重新生成</button>
+      </div>
+    </div>
+
+    <!-- Share Card -->
+    <div id="share-card-wrap">
+      <div id="share-card">
+        <div class="card-deco-top"></div>
+        <div class="card-flowers">🌸 🌷 🌸</div>
+        <div class="card-date">3.8 · 国际妇女节</div>
+        <div class="card-to" id="card-to"></div>
+        <div class="card-body" id="card-body"></div>
+        <div class="card-footer">
+          <div class="card-sig">用心生成 · 真诚相赠</div>
+          <div class="card-heart">♥</div>
+        </div>
+      </div>
+      <button class="download-btn" onclick="downloadCard()">
+        <span>↓</span> 保存卡片图片
+      </button>
+    </div>
+
+    <div class="share-hint">截图或保存后发给她 🌷</div>
+  </div>
+
+  <footer>三八妇女节快乐 · 愿每位女性都被温柔以待</footer>
+</div>
+
+<script>
+// ── 模式管理 ──
+let currentMode = 'other';
+
+function setMode(mode) {
+  currentMode = mode;
+  document.body.classList.toggle('self-mode', mode === 'self');
+  document.getElementById('btn-other').classList.toggle('active', mode === 'other');
+  document.getElementById('btn-self').classList.toggle('active', mode === 'self');
+
+  if (mode === 'self') {
+    document.getElementById('main-title').innerHTML = '写给<em>自己的</em><br>一段话';
+    document.getElementById('tagline').textContent = '三八节，先好好赞美一下自己';
+    document.getElementById('form-label').textContent = '关于你自己';
+    document.getElementById('btn-label').textContent = '生成专属鼓励';
+  } else {
+    document.getElementById('main-title').innerHTML = '为她写一段<br><em>专属赞美</em>';
+    document.getElementById('tagline').textContent = '用 AI，送出一份真正走心的话语';
+    document.getElementById('form-label').textContent = '填写她的信息';
+    document.getElementById('btn-label').textContent = '生成专属赞美';
+  }
+
+  // Reset result
+  document.getElementById('result-section').classList.remove('visible');
+  document.getElementById('share-card-wrap').classList.remove('visible');
+}
+
+// ── 樱花动画 ──
+const canvas = document.getElementById('petals-canvas');
+const ctx = canvas.getContext('2d');
+let petals = [];
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resize(); window.addEventListener('resize', resize);
+function createPetal() {
+  return { x: Math.random()*canvas.width, y:-20, size: Math.random()*8+5, speedY: Math.random()*1.2+0.5,
+    speedX:(Math.random()-0.5)*0.8, rotation:Math.random()*Math.PI*2, rotSpeed:(Math.random()-0.5)*0.04,
+    opacity:Math.random()*0.5+0.2, swing:Math.random()*2, swingSpeed:Math.random()*0.02+0.01, swingOffset:Math.random()*Math.PI*2 };
+}
+for(let i=0;i<18;i++){const p=createPetal();p.y=Math.random()*canvas.height;petals.push(p);}
+function drawPetal(p,t) {
+  ctx.save(); ctx.translate(p.x+Math.sin(t*p.swingSpeed+p.swingOffset)*30*p.swing,p.y);
+  ctx.rotate(p.rotation); ctx.globalAlpha=p.opacity; ctx.beginPath();
+  ctx.ellipse(0,0,p.size*0.5,p.size,0,0,Math.PI*2);
+  const g=ctx.createRadialGradient(0,0,0,0,0,p.size);
+  const isSelf = document.body.classList.contains('self-mode');
+  g.addColorStop(0, isSelf ? '#d4c0f0' : '#f7d0d8');
+  g.addColorStop(1, isSelf ? '#b090d8' : '#e8a0b0');
+  ctx.fillStyle=g; ctx.fill(); ctx.restore();
+}
+let t=0;
+function animate(){
+  ctx.clearRect(0,0,canvas.width,canvas.height); t++;
+  petals.forEach(p=>{
+    p.y+=p.speedY; p.x+=p.speedX; p.rotation+=p.rotSpeed;
+    if(p.y>canvas.height+30) Object.assign(p,createPetal());
+    drawPetal(p,t);
+  });
+  if(Math.random()<0.02&&petals.length<30) petals.push(createPetal());
+  requestAnimationFrame(animate);
+}
+animate();
+
+// ── Tag 交互 ──
+document.querySelectorAll('#traits .tag, #self-traits .tag').forEach(tag => {
+  tag.addEventListener('click', () => tag.classList.toggle('active'));
+});
+document.querySelectorAll('#styles .tag').forEach(tag => {
+  tag.addEventListener('click', () => {
+    document.querySelectorAll('#styles .tag').forEach(t=>t.classList.remove('active'));
+    tag.classList.add('active');
+  });
+});
+
+// ── AI 生成 ──
+async function generate() {
+  const btn = document.getElementById('gen-btn');
+  const resultEl = document.getElementById('result-text');
+  const resultSection = document.getElementById('result-section');
+  const style = document.querySelector('#styles .tag.active')?.dataset.v || '温柔诗意';
+
+  let prompt, toText;
+
+  if (currentMode === 'self') {
+    const selfName = document.getElementById('self-name').value.trim() || '自己';
+    const selfStory = document.getElementById('self-story').value.trim();
+    const selfTraits = [...document.querySelectorAll('#self-traits .tag.active')].map(t=>t.dataset.v).join('、') || '庆祝成长与变化';
+    toText = `致 · ${selfName}`;
+    const storyPart = selfStory ? `\n她今年经历了：${selfStory}` : '';
+    prompt = `请为三八妇女节写一段女性写给自己的鼓励赞美，要求：
+- 主角：${selfName}（写给自己看的）
+- 方向：${selfTraits}${storyPart}
+- 风格：${style}
+- 长度：控制在80~120字以内，简洁有力，像一段对自己说的真心话
+- 用第一人称"我"开头或行文，真实、不矫情
+- 不要标题，不要多余解释，结尾写上"三八妇女节快乐，感谢自己"`;
+  } else {
+    const name = document.getElementById('name').value.trim() || '她';
+    const relation = document.getElementById('relation').value;
+    const memory = document.getElementById('memory').value.trim();
+    const traits = [...document.querySelectorAll('#traits .tag.active')].map(t=>t.dataset.v).join('、') || '温柔';
+    toText = `致 · ${name}`;
+    const memoryPart = memory ? `\n她有一件让我印象深刻的事：${memory}` : '';
+    prompt = `请为三八妇女节写一段专属赞美，要求：
+- 赞美对象：${name}（我的${relation}）
+- 她的特质：${traits}${memoryPart}
+- 风格：${style}
+- 长度：控制在80~120字以内，简洁真诚，不分段
+- 直接开始正文，不要标题，不要"亲爱的XX"开头
+- 结尾写上"三八妇女节快乐"`;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span style="animation:spin 1s linear infinite;display:inline-block">✿</span> 正在创作中…';
+
+  // Make text non-editable during streaming
+  resultEl.contentEditable = 'false';
+  resultEl.textContent = '';
+  resultEl.classList.add('streaming');
+  document.getElementById('edit-hint').classList.remove('show');
+  document.getElementById('share-card-wrap').classList.remove('visible');
+  document.getElementById('card-btn-label').textContent = '生成卡片';
+  resultSection.classList.add('visible');
+  document.getElementById('result-to').textContent = toText;
+  resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  const timeoutId = setTimeout(() => {
+    if (resultEl.classList.contains('streaming')) {
+      resultEl.classList.remove('streaming');
+      if (!resultEl.textContent.trim()) resultEl.textContent = '请求超时，请再试一次 🌸';
+      resultEl.contentEditable = 'true';
+      document.getElementById('edit-hint').classList.add('show');
+      btn.disabled = false;
+      btn.innerHTML = '<span>✦</span> 重新生成';
+    }
+  }, 20000);
+
+  try {
+    const response = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let stopReason = null;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n'); buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6); if (data === '[DONE]') continue;
+        try {
+          const json = JSON.parse(data);
+          if (json.type === 'content_block_delta' && json.delta?.text) {
+            resultEl.textContent += json.delta.text;
+          }
+          // 捕获结束原因
+          if (json.type === 'message_delta' && json.delta?.stop_reason) {
+            stopReason = json.delta.stop_reason;
+          }
+        } catch {}
+      }
+    }
+    // 如果被 token 上限截断，追加提示并尝试续写
+    if (stopReason === 'max_tokens') {
+      resultEl.textContent += '…（内容已截断，请点击重新生成）';
+    }
+  } catch(e) {
+    resultEl.textContent = '生成遇到了小问题，请再试一次 🌸';
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  resultEl.classList.remove('streaming');
+  resultEl.contentEditable = 'true';
+  document.getElementById('edit-hint').classList.add('show');
+
+  btn.disabled = false;
+  btn.innerHTML = `<span>✦</span> <span id="btn-label">${currentMode==='self'?'生成专属鼓励':'生成专属赞美'}</span>`;
+}
+
+// ── 卡片生成 ──
+function toggleCard() {
+  const wrap = document.getElementById('share-card-wrap');
+  const text = document.getElementById('result-text').textContent.trim();
+  if (!text) return;
+
+  if (wrap.classList.contains('visible')) {
+    wrap.classList.remove('visible');
+    document.getElementById('card-btn-label').textContent = '生成卡片';
+    return;
+  }
+
+  // Populate card
+  document.getElementById('card-to').textContent = document.getElementById('result-to').textContent;
+  document.getElementById('card-body').textContent = text;
+
+  // Self-mode card tweaks
+  const cardFlowers = document.querySelector('.card-flowers');
+  if (currentMode === 'self') {
+    cardFlowers.textContent = '✨ 🌟 ✨';
+    document.querySelector('.card-sig').textContent = '写给自己 · 爱自己';
+    document.querySelector('.card-heart').textContent = '★';
+  } else {
+    cardFlowers.textContent = '🌸 🌷 🌸';
+    document.querySelector('.card-sig').textContent = '用心生成 · 真诚相赠';
+    document.querySelector('.card-heart').textContent = '♥';
+  }
+
+  wrap.classList.add('visible');
+  document.getElementById('card-btn-label').textContent = '收起卡片';
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function resultEl() { return document.getElementById('result-text'); }
+
+// ── 下载卡片 ──
+async function downloadCard() {
+  const card = document.getElementById('share-card');
+  const btn = document.querySelector('.download-btn');
+  btn.textContent = '生成中…';
+  try {
+    const c = await html2canvas(card, { scale: 3, useCORS: true, backgroundColor: null });
+    const link = document.createElement('a');
+    link.download = `三八节卡片_${Date.now()}.png`;
+    link.href = c.toDataURL('image/png');
+    link.click();
+    showToast('卡片已保存 ✓');
+  } catch(e) {
+    showToast('请直接截图保存 📱');
+  }
+  btn.innerHTML = '<span>↓</span> 保存卡片图片';
+}
+
+// ── 复制 ──
+function copyText() {
+  const text = resultEl().textContent.trim();
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => showToast('已复制到剪贴板 ✓'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>
