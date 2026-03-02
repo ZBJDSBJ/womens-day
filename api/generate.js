@@ -11,7 +11,6 @@ export default async function handler(req) {
     });
   }
 
-  // GET 请求：调试用，浏览器直接访问 /api/generate 可看配置状态
   if (req.method === 'GET') {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     const status = apiKey
@@ -29,7 +28,7 @@ export default async function handler(req) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: '❌ 未配置 ANTHROPIC_API_KEY，请在 Vercel 后台 Settings → Environment Variables 添加' }),
+      JSON.stringify({ error: '❌ 未配置 ANTHROPIC_API_KEY' }),
       { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
     );
   }
