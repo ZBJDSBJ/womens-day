@@ -5,9 +5,20 @@ export default async function handler(req) {
     return new Response(null, {
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
       },
+    });
+  }
+
+  // GET 请求：调试用，浏览器直接访问 /api/generate 可看配置状态
+  if (req.method === 'GET') {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const status = apiKey
+      ? `✅ API Key 已配置（${apiKey.slice(0, 12)}...）`
+      : '❌ API Key 未配置，请在 Vercel 后台 Settings → Environment Variables 添加 ANTHROPIC_API_KEY';
+    return new Response(JSON.stringify({ status }, null, 2), {
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 
@@ -17,10 +28,10 @@ export default async function handler(req) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: '未配置 API Key' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ error: '❌ 未配置 ANTHROPIC_API_KEY，请在 Vercel 后台 Settings → Environment Variables 添加' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
   }
 
   try {
@@ -41,7 +52,14 @@ export default async function handler(req) {
       }),
     });
 
-    // 直接流式透传给前端
+    if (!upstream.ok) {
+      const errText = await upstream.text();
+      return new Response(
+        JSON.stringify({ error: `Anthropic API 错误 ${upstream.status}`, detail: errText }),
+        { status: upstream.status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+
     return new Response(upstream.body, {
       headers: {
         'Content-Type': 'text/event-stream',
@@ -52,7 +70,7 @@ export default async function handler(req) {
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
   }
 }
