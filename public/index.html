@@ -682,24 +682,43 @@ async function generate() {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+
       buffer += decoder.decode(value, { stream: true });
 
-      let newlineIdx;
-      while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.slice(0, newlineIdx).trim();
-        buffer = buffer.slice(newlineIdx + 1);
+      // SSE 消息以 \n\n 分隔
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop(); // 最后一段可能不完整，留到下次
 
-        if (!line.startsWith('data:')) continue;
-        const data = line.slice(5).trim();
+      for (const part of parts) {
+        // 每个 part 可能包含多行（event:/data:/id:）
+        const lines = part.split('\n');
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (!data || data === '[DONE]') continue;
+          try {
+            const json = JSON.parse(data);
+            if (json.type === 'content_block_delta' && json.delta?.text) {
+              resultEl.textContent += json.delta.text;
+            }
+            if (json.type === 'message_delta' && json.delta?.stop_reason) {
+              stopReason = json.delta.stop_reason;
+            }
+          } catch {}
+        }
+      }
+    }
+
+    // 处理 buffer 里最后剩余的数据
+    if (buffer.trim()) {
+      for (const line of buffer.split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
         if (!data || data === '[DONE]') continue;
-
         try {
-          const parsed = JSON.parse(data);
-          if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta' && parsed.delta?.text) {
-            resultEl.textContent += parsed.delta.text;
-          }
-          if (parsed.type === 'message_delta' && parsed.delta?.stop_reason) {
-            stopReason = parsed.delta.stop_reason;
+          const json = JSON.parse(data);
+          if (json.type === 'content_block_delta' && json.delta?.text) {
+            resultEl.textContent += json.delta.text;
           }
         } catch {}
       }
