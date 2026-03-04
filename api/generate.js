@@ -1,28 +1,27 @@
 export const config = { runtime: 'edge' };
 
-export default async function handler(req) {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    });
-  }
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
 
+export default async function handler(req) {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
+
+  // GET: 健康检查，浏览器直接访问 /api/generate 可确认配置
   if (req.method === 'GET') {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const key = process.env.GEMINI_API_KEY;
     return new Response(
-      JSON.stringify({ status: apiKey ? `✅ API Key 已配置（${apiKey.slice(0,14)}...）` : '❌ 未配置 ANTHROPIC_API_KEY' }, null, 2),
-      { headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ status: key ? '✅ Gemini API Key 已配置' : '❌ 未配置 GEMINI_API_KEY' }),
+      { headers: { 'Content-Type': 'application/json', ...CORS } }
     );
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: '未配置 ANTHROPIC_API_KEY' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+    return new Response(JSON.stringify({ error: '未配置 GEMINI_API_KEY，请在 Vercel 后台设置环境变量' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
   let prompt = '';
@@ -31,37 +30,72 @@ export default async function handler(req) {
     prompt = body.prompt || '';
   } catch (e) {}
 
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+
   try {
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+    const upstream = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'x-api-key': apiKey,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
-        stream: true,
-        messages: [{ role: 'user', content: prompt || '你好' }],
+        contents: [{ role: 'user', parts: [{ text: prompt || '你好' }] }],
+        generationConfig: { maxOutputTokens: 1024, temperature: 0.9 },
       }),
     });
 
     if (!upstream.ok) {
-      const errText = await upstream.text();
-      return new Response(JSON.stringify({ error: `Anthropic 返回 ${upstream.status}`, detail: errText }),
-        { status: upstream.status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      const err = await upstream.text();
+      return new Response(
+        JSON.stringify({ error: `Gemini API 错误 ${upstream.status}`, detail: err }),
+        { status: upstream.status, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
     }
 
-    return new Response(upstream.body, {
+    // 把 Gemini SSE 流解析后，转换为简单的 {text} 格式传给前端
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        let buffer = '';
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            let idx;
+            while ((idx = buffer.indexOf('\n')) !== -1) {
+              const line = buffer.slice(0, idx).trim();
+              buffer = buffer.slice(idx + 1);
+              if (!line.startsWith('data:')) continue;
+              const data = line.slice(5).trim();
+              if (!data || data === '[DONE]') continue;
+              try {
+                const json = JSON.parse(data);
+                const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                  controller.enqueue(
+                    new TextEncoder().encode('data: ' + JSON.stringify({ text }) + '\n\n')
+                  );
+                }
+              } catch {}
+            }
+          }
+        } finally {
+          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Access-Control-Allow-Origin': '*',
+        ...CORS,
       },
     });
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 }
